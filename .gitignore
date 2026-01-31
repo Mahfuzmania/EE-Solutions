@@ -1,0 +1,24 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+app/data/index/
+app/data/chunks/
+app/data/cache/
+app/data/*.db
+app/data/*.faiss
+app/data/*.npy
+app/data/*.jsonl
+app/data/*.parquet
+app/data/pdfs/*.ocr.txt
+app/data/pdfs/*.txt
+app/data/pdfs/*.images/
+app/data/pdfs/*.zip
+app/data/pdfs/*.tmp
+app/data/pdfs/*.pdf
+Electrical Engineering/
