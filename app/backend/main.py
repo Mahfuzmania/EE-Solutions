@@ -6,9 +6,10 @@ from typing import Any, Dict, List
 
 import requests
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from .circuits import generate_circuit
 from .config import (
     LLM_PROVIDER,
     OLLAMA_MODEL,
@@ -158,6 +159,20 @@ def chat(payload: Dict[str, Any]) -> JSONResponse:
             "error": error,
         }
     )
+
+
+@app.post("/api/circuit/generate")
+def circuit_generate(payload: Dict[str, Any]) -> Response:
+    image_bytes = generate_circuit(payload)
+    return Response(content=image_bytes, media_type="image/png")
+
+
+@app.post("/api/circuit/understand")
+def circuit_understand() -> Dict[str, str]:
+    return {
+        "status": "not_implemented",
+        "message": "Circuit understanding is not implemented yet. Upload support will be added next.",
+    }
 
 
 def fallback_answer(query: str, chunks: List[Any], language: str) -> str:
