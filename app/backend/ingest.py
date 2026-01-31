@@ -5,7 +5,6 @@ import math
 from pathlib import Path
 from typing import List
 
-import numpy as np
 import pdfplumber
 
 from .config import (
@@ -16,7 +15,7 @@ from .config import (
     MIN_PAGE_TEXT_LEN,
     PDF_DIR,
 )
-from .embeddings import Embedder
+from .tokenize import tokenize
 
 try:
     import pytesseract
@@ -105,10 +104,10 @@ def main() -> None:
         raise SystemExit("No chunks created. Check PDFs or OCR settings.")
 
     texts = [c["text"] for c in all_chunks]
-    embedder = Embedder()
-    embeddings = embedder.embed(texts)
+    tokens = [tokenize(t) for t in texts]
+    with (INDEX_DIR / "bm25_tokens.json").open("w", encoding="utf-8") as f:
+        json.dump(tokens, f, ensure_ascii=False)
 
-    np.save(INDEX_DIR / "embeddings.npy", embeddings)
     with (INDEX_DIR / "metadata.jsonl").open("w", encoding="utf-8") as f:
         for c in all_chunks:
             f.write(json.dumps(c, ensure_ascii=False) + "\n")

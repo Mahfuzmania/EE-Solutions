@@ -3,7 +3,7 @@
 Local-first EE chatbot with RAG over your textbooks. Supports English + Bengali, citations, and step-by-step answers (toggle).
 
 ## Folders
-- `app/backend`: FastAPI backend
+- `app/backend`: Flask backend
 - `app/frontend`: static web UI
 - `app/data/pdfs`: put your PDF books here
 - `app/data/index`: vector index output
@@ -16,7 +16,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r app\backend\requirements.txt
 python app\backend\ingest.py
-uvicorn app.backend.main:app --reload --port 8000
+python app\backend\main.py
 ```
 Open `http://localhost:8000`.
 

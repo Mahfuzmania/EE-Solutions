@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import requests
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse, Response
-from fastapi.staticfiles import StaticFiles
+from flask import Flask, Response, jsonify, request, send_from_directory
+from PIL import Image
+import pytesseract
 
 from .circuits import generate_circuit
 from .config import (
@@ -17,23 +17,13 @@ from .config import (
     REMOTE_BASE_URL,
     TOP_K,
 )
-from .embeddings import Embedder
 from .rag import VectorIndex, build_context
 
-app = FastAPI(title="EE RAG Bot")
-
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
-app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
-_embedder: Embedder | None = None
+app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path="/static")
+
 _index: VectorIndex | None = None
-
-
-def get_embedder() -> Embedder:
-    global _embedder
-    if _embedder is None:
-        _embedder = Embedder()
-    return _embedder
 
 
 def get_index() -> VectorIndex:
@@ -44,60 +34,61 @@ def get_index() -> VectorIndex:
 
 
 @app.get("/")
-def root() -> FileResponse:
-    return FileResponse(FRONTEND_DIR / "index.html")
+def root() -> Response:
+    return send_from_directory(FRONTEND_DIR, "index.html")
 
 
 @app.get("/api/health")
-def health() -> Dict[str, str]:
-    return {"status": "ok"}
+def health() -> Response:
+    return jsonify({"status": "ok"})
 
 
 @app.post("/api/reindex")
-def reindex() -> Dict[str, str]:
+def reindex() -> Response:
     global _index
     _index = VectorIndex.load()
-    return {"status": "reloaded"}
+    return jsonify({"status": "reloaded"})
 
 
 @app.post("/api/retrieve")
-def retrieve(payload: Dict[str, Any]) -> Dict[str, Any]:
-    query = payload.get("query", "").strip()
+def retrieve() -> Response:
+    payload: Dict[str, Any] = request.get_json(force=True) or {}
+    query = str(payload.get("query", "")).strip()
     if not query:
-        raise HTTPException(status_code=400, detail="Query is required")
-    embedder = get_embedder()
+        return jsonify({"error": "Query is required"}), 400
+
     index = get_index()
-    q_emb = embedder.embed([query])[0]
-    chunks = index.search(q_emb, top_k=payload.get("top_k", TOP_K))
-    return {
-        "results": [
-            {
-                "chunk_id": c.chunk_id,
-                "source": c.source,
-                "page": c.page,
-                "title": c.title,
-                "text": c.text,
-            }
-            for c in chunks
-        ]
-    }
+    chunks = index.search(query, top_k=payload.get("top_k", TOP_K))
+    return jsonify(
+        {
+            "results": [
+                {
+                    "chunk_id": c.chunk_id,
+                    "source": c.source,
+                    "page": c.page,
+                    "title": c.title,
+                    "text": c.text,
+                }
+                for c in chunks
+            ]
+        }
+    )
 
 
 @app.post("/api/chat")
-def chat(payload: Dict[str, Any]) -> JSONResponse:
-    query = payload.get("query", "").strip()
+def chat() -> Response:
+    payload: Dict[str, Any] = request.get_json(force=True) or {}
+    query = str(payload.get("query", "")).strip()
     language = payload.get("language", "en")
     show_steps = bool(payload.get("show_steps", False))
     mode = payload.get("mode", "answer")
-    user_solution = payload.get("solution", "").strip()
+    user_solution = str(payload.get("solution", "")).strip()
 
     if not query:
-        raise HTTPException(status_code=400, detail="Query is required")
+        return jsonify({"error": "Query is required"}), 400
 
-    embedder = get_embedder()
     index = get_index()
-    q_emb = embedder.embed([query])[0]
-    chunks = index.search(q_emb, top_k=payload.get("top_k", TOP_K))
+    chunks = index.search(query, top_k=payload.get("top_k", TOP_K))
     context = build_context(chunks)
 
     system = (
@@ -140,11 +131,11 @@ def chat(payload: Dict[str, Any]) -> JSONResponse:
             response_text = remote_chat(system, prompt)
         else:
             raise RuntimeError("LLM provider not configured")
-    except Exception as exc:  # fallback
+    except Exception as exc:
         error = str(exc)
         response_text = fallback_answer(query, chunks, language)
 
-    return JSONResponse(
+    return jsonify(
         {
             "answer": response_text,
             "sources": [
@@ -162,17 +153,35 @@ def chat(payload: Dict[str, Any]) -> JSONResponse:
 
 
 @app.post("/api/circuit/generate")
-def circuit_generate(payload: Dict[str, Any]) -> Response:
+def circuit_generate() -> Response:
+    payload = request.get_json(force=True) or {}
     image_bytes = generate_circuit(payload)
-    return Response(content=image_bytes, media_type="image/png")
+    return Response(image_bytes, mimetype="image/png")
 
 
 @app.post("/api/circuit/understand")
-def circuit_understand() -> Dict[str, str]:
-    return {
-        "status": "not_implemented",
-        "message": "Circuit understanding is not implemented yet. Upload support will be added next.",
-    }
+def circuit_understand() -> Response:
+    return jsonify(
+        {
+            "status": "not_implemented",
+            "message": "Circuit understanding is not implemented yet. Upload support will be added next.",
+        }
+    )
+
+
+@app.post("/api/ocr")
+def ocr_image() -> Response:
+    if "image" not in request.files:
+        return jsonify({"error": "image file is required"}), 400
+    file = request.files["image"]
+    if not file.filename:
+        return jsonify({"error": "empty filename"}), 400
+    try:
+        img = Image.open(file.stream)
+        text = pytesseract.image_to_string(img)
+        return jsonify({"text": text})
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
 
 
 def fallback_answer(query: str, chunks: List[Any], language: str) -> str:
@@ -207,7 +216,7 @@ def remote_chat(system: str, prompt: str) -> str:
     if REMOTE_API_KEY:
         headers["Authorization"] = f"Bearer {REMOTE_API_KEY}"
     payload = {
-        "model": "",  # set in remote server default
+        "model": "",
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
@@ -218,3 +227,7 @@ def remote_chat(system: str, prompt: str) -> str:
     resp.raise_for_status()
     data = resp.json()
     return data["choices"][0]["message"]["content"]
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000, debug=True)

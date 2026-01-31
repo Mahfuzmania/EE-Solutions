@@ -5,6 +5,9 @@ const answer = document.getElementById('answer');
 const errorEl = document.getElementById('error');
 const statusEl = document.getElementById('status');
 const sources = document.getElementById('sources');
+const ocrBtn = document.getElementById('ocrBtn');
+const ocrFile = document.getElementById('ocrFile');
+const ocrText = document.getElementById('ocrText');
 
 function setStatus(msg) {
   statusEl.textContent = msg;
@@ -57,3 +60,23 @@ async function ask() {
 }
 
 askBtn.addEventListener('click', ask);
+
+async function runOcr() {
+  if (!ocrFile.files || !ocrFile.files[0]) {
+    ocrText.textContent = 'Please choose an image.';
+    return;
+  }
+  const form = new FormData();
+  form.append('image', ocrFile.files[0]);
+  ocrText.textContent = 'Reading...';
+  try {
+    const res = await fetch('/api/ocr', { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'OCR failed');
+    ocrText.textContent = data.text || '';
+  } catch (err) {
+    ocrText.textContent = `Error: ${err.message}`;
+  }
+}
+
+ocrBtn.addEventListener('click', runOcr);

@@ -154,6 +154,16 @@ button {
   padding-left: 18px;
 }
 
+.ocr {
+  margin-top: 16px;
+}
+
+.ocr pre {
+  white-space: pre-wrap;
+  color: var(--text);
+  margin-top: 12px;
+}
+
 @media (max-width: 900px) {
   .hero {
     grid-template-columns: 1fr;
