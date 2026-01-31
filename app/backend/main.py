@@ -23,6 +23,11 @@ FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
 
 app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path="/static")
 
+# Ensure Tesseract is found even if PATH is not refreshed in the session.
+_tesseract_default = Path("C:/Program Files/Tesseract-OCR/tesseract.exe")
+if _tesseract_default.exists():
+    pytesseract.pytesseract.tesseract_cmd = str(_tesseract_default)
+
 _index: VectorIndex | None = None
 
 
