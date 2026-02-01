@@ -18,7 +18,7 @@ EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "local").lower()
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").lower()
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
 REMOTE_BASE_URL = os.getenv("REMOTE_BASE_URL", "http://localhost:1234/v1")
 REMOTE_API_KEY = os.getenv("REMOTE_API_KEY", "")
 

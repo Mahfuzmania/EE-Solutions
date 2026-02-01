@@ -29,7 +29,7 @@ EMBEDDING_MODEL=all-MiniLM-L6-v2
 
 # LLM
 LLM_PROVIDER=ollama  # or remote
-OLLAMA_MODEL=llama3.1:8b
+OLLAMA_MODEL=llama3.2:3b
 REMOTE_BASE_URL=http://localhost:1234/v1
 REMOTE_API_KEY=
 
