@@ -164,6 +164,10 @@ button {
   margin-top: 12px;
 }
 
+.status-panel {
+  margin-top: 16px;
+}
+
 @media (max-width: 900px) {
   .hero {
     grid-template-columns: 1fr;

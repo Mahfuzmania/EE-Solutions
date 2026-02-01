@@ -49,6 +49,19 @@ def health() -> Response:
     return jsonify({"status": "ok"})
 
 
+@app.get("/api/config")
+def config_status() -> Response:
+    return jsonify(
+        {
+            "llm_provider": LLM_PROVIDER,
+            "remote_base_url": REMOTE_BASE_URL,
+            "remote_model": REMOTE_MODEL,
+            "ollama_model": OLLAMA_MODEL,
+            "ocr_ready": bool(getattr(pytesseract.pytesseract, "tesseract_cmd", "")),
+        }
+    )
+
+
 @app.post("/api/reindex")
 def reindex() -> Response:
     global _index

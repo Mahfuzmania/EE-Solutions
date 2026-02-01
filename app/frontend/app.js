@@ -8,6 +8,8 @@ const sources = document.getElementById('sources');
 const ocrBtn = document.getElementById('ocrBtn');
 const ocrFile = document.getElementById('ocrFile');
 const ocrText = document.getElementById('ocrText');
+const cfgBtn = document.getElementById('cfgBtn');
+const cfgText = document.getElementById('cfgText');
 
 function setStatus(msg) {
   statusEl.textContent = msg;
@@ -80,3 +82,17 @@ async function runOcr() {
 }
 
 ocrBtn.addEventListener('click', runOcr);
+
+async function loadConfig() {
+  cfgText.textContent = 'Loading...';
+  try {
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Config error');
+    cfgText.textContent = JSON.stringify(data, null, 2);
+  } catch (err) {
+    cfgText.textContent = `Error: ${err.message}`;
+  }
+}
+
+cfgBtn.addEventListener('click', loadConfig);
