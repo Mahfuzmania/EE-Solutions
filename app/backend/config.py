@@ -21,6 +21,7 @@ LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").lower()
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
 REMOTE_BASE_URL = os.getenv("REMOTE_BASE_URL", "http://localhost:1234/v1")
 REMOTE_API_KEY = os.getenv("REMOTE_API_KEY", "")
+REMOTE_MODEL = os.getenv("REMOTE_MODEL", "gpt-4o-mini")
 
 TOP_K = int(os.getenv("TOP_K", "5"))
 MAX_CONTEXT_CHARS = int(os.getenv("MAX_CONTEXT_CHARS", "12000"))

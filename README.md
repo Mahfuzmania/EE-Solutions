@@ -32,6 +32,7 @@ LLM_PROVIDER=ollama  # or remote
 OLLAMA_MODEL=llama3.2:3b
 REMOTE_BASE_URL=http://localhost:1234/v1
 REMOTE_API_KEY=
+REMOTE_MODEL=gpt-4o-mini
 
 # RAG
 TOP_K=5

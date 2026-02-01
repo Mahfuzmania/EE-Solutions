@@ -15,6 +15,7 @@ from .config import (
     OLLAMA_MODEL,
     REMOTE_API_KEY,
     REMOTE_BASE_URL,
+    REMOTE_MODEL,
     TOP_K,
 )
 from .rag import VectorIndex, build_context
@@ -221,7 +222,7 @@ def remote_chat(system: str, prompt: str) -> str:
     if REMOTE_API_KEY:
         headers["Authorization"] = f"Bearer {REMOTE_API_KEY}"
     payload = {
-        "model": "",
+        "model": REMOTE_MODEL,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
