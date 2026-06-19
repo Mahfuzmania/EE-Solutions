@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ee_rag
+      POSTGRES_USER: ee_rag
+      POSTGRES_PASSWORD: ee_rag
+    ports:
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - pgvector_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ee_rag -d ee_rag"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  ee-rag-bot:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app/data:/app/app/data
+      - ./.env:/app/.env
+    environment:
+      - FLASK_ENV=production
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - DATABASE_URL=postgresql://ee_rag:ee_rag@postgres:5432/ee_rag
+    depends_on:
+      postgres:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  pgvector_data:
