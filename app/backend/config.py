@@ -16,8 +16,15 @@ CACHE_DIR = DATA_DIR / "cache"
 
 EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "local").lower()
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", "32"))
+EMBEDDING_BASE_URL = os.getenv("EMBEDDING_BASE_URL", "")
+EMBEDDING_API_KEY = os.getenv("EMBEDDING_API_KEY", "")
+
+VECTOR_STORE_PROVIDER = os.getenv("VECTOR_STORE_PROVIDER", "local").lower()
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://ee_rag:ee_rag@localhost:15432/ee_rag")
 
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").lower()
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
 REMOTE_BASE_URL = os.getenv("REMOTE_BASE_URL", "http://localhost:1234/v1")
 REMOTE_API_KEY = os.getenv("REMOTE_API_KEY", "")

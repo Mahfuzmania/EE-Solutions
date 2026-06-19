@@ -1,24 +1,28 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any, Dict, List
 
-import requests
 from flask import Flask, Response, jsonify, request, send_from_directory
 from PIL import Image
 import pytesseract
 
 from .circuits import generate_circuit
 from .config import (
+    EMBEDDING_BASE_URL,
+    EMBEDDING_MODEL,
+    EMBEDDING_PROVIDER,
     LLM_PROVIDER,
+    OLLAMA_BASE_URL,
     OLLAMA_MODEL,
-    REMOTE_API_KEY,
     REMOTE_BASE_URL,
     REMOTE_MODEL,
     TOP_K,
+    VECTOR_STORE_PROVIDER,
 )
-from .rag import VectorIndex, build_context
+from .llms import get_llm_client
+from .prompts import build_chat_prompt
+from .rag import VectorIndex
 
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
 
@@ -53,9 +57,14 @@ def health() -> Response:
 def config_status() -> Response:
     return jsonify(
         {
+            "embedding_provider": EMBEDDING_PROVIDER,
+            "embedding_model": EMBEDDING_MODEL,
+            "embedding_base_url": EMBEDDING_BASE_URL,
+            "vector_store_provider": VECTOR_STORE_PROVIDER,
             "llm_provider": LLM_PROVIDER,
             "remote_base_url": REMOTE_BASE_URL,
             "remote_model": REMOTE_MODEL,
+            "ollama_base_url": OLLAMA_BASE_URL,
             "ollama_model": OLLAMA_MODEL,
             "ocr_ready": bool(getattr(pytesseract.pytesseract, "tesseract_cmd", "")),
         }
@@ -108,48 +117,20 @@ def chat() -> Response:
 
     index = get_index()
     chunks = index.search(query, top_k=payload.get("top_k", TOP_K))
-    context = build_context(chunks)
-
-    system = (
-        "You are an expert Electrical & Electronic Engineering tutor. "
-        "Always cite sources using the [Source: file, page] format. "
-        "Be precise with equations, units, and steps. "
-        "If the user asks to check a solution, identify errors and provide corrections."
-    )
-
-    instructions = [
-        f"Language: {'Bengali' if language == 'bn' else 'English'}.",
-        "Use the provided context for factual claims.",
-        "If something is not in context, say it is not found in the sources.",
-        "Provide step-by-step reasoning only if show_steps is true.",
-    ]
-
-    if mode == "check":
-        instructions.append("The user provided a solution. Evaluate and correct it.")
-
-    user_prompt = query
-    if user_solution:
-        user_prompt += f"\n\nUser solution:\n{user_solution}"
-
-    prompt = (
-        "CONTEXT:\n"
-        f"{context}\n\n"
-        "INSTRUCTIONS:\n"
-        + "\n".join(instructions)
-        + "\n\nUSER QUESTION:\n"
-        + user_prompt
+    system, prompt = build_chat_prompt(
+        query=query,
+        chunks=chunks,
+        language=language,
+        show_steps=show_steps,
+        mode=mode,
+        user_solution=user_solution,
     )
 
     response_text = None
     error = None
 
     try:
-        if LLM_PROVIDER == "ollama":
-            response_text = ollama_chat(system, prompt)
-        elif LLM_PROVIDER == "remote":
-            response_text = remote_chat(system, prompt)
-        else:
-            raise RuntimeError("LLM provider not configured")
+        response_text = get_llm_client().chat(system, prompt)
     except Exception as exc:
         error = str(exc)
         response_text = fallback_answer(query, chunks, language)
@@ -213,39 +194,6 @@ def fallback_answer(query: str, chunks: List[Any], language: str) -> str:
         lines.append(f"[Source: {Path(c.source).name}, page {c.page}] {c.text[:400]}")
     return "\n".join(lines)
 
-
-def ollama_chat(system: str, prompt: str) -> str:
-    payload = {
-        "model": OLLAMA_MODEL,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": prompt},
-        ],
-        "stream": False,
-    }
-    resp = requests.post("http://localhost:11434/api/chat", json=payload, timeout=120)
-    resp.raise_for_status()
-    data = resp.json()
-    return data.get("message", {}).get("content", "")
-
-
-def remote_chat(system: str, prompt: str) -> str:
-    url = REMOTE_BASE_URL.rstrip("/") + "/chat/completions"
-    headers = {"Content-Type": "application/json"}
-    if REMOTE_API_KEY:
-        headers["Authorization"] = f"Bearer {REMOTE_API_KEY}"
-    payload = {
-        "model": REMOTE_MODEL,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0.2,
-    }
-    resp = requests.post(url, headers=headers, data=json.dumps(payload), timeout=120)
-    resp.raise_for_status()
-    data = resp.json()
-    return data["choices"][0]["message"]["content"]
 
 
 if __name__ == "__main__":

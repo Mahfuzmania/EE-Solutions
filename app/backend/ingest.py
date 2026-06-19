@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-import math
+import shutil
 from pathlib import Path
 from typing import List
 
@@ -15,7 +15,8 @@ from .config import (
     MIN_PAGE_TEXT_LEN,
     PDF_DIR,
 )
-from .tokenize import tokenize
+from .embeddings import get_embedder
+from .vectorstores import get_vector_store
 
 try:
     import pytesseract
@@ -32,7 +33,7 @@ def normalize_text(text: str) -> str:
 
 
 def page_text_with_ocr(pdf_path: Path, page_index: int) -> str:
-    if pytesseract is None or convert_from_path is None:
+    if pytesseract is None or convert_from_path is None or shutil.which("tesseract") is None:
         return ""
     try:
         images = convert_from_path(str(pdf_path), first_page=page_index + 1, last_page=page_index + 1)
@@ -40,12 +41,22 @@ def page_text_with_ocr(pdf_path: Path, page_index: int) -> str:
         return ""
     if not images:
         return ""
-    return pytesseract.image_to_string(images[0])
+    try:
+        return pytesseract.image_to_string(images[0])
+    except Exception:
+        return ""
 
 
 def split_chunks(text: str, chunk_size: int, overlap: int) -> List[str]:
     if not text:
         return []
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be greater than 0")
+    if overlap < 0:
+        raise ValueError("overlap must be greater than or equal to 0")
+    if overlap >= chunk_size:
+        raise ValueError("overlap must be smaller than chunk_size")
+
     chunks: List[str] = []
     start = 0
     while start < len(text):
@@ -53,9 +64,9 @@ def split_chunks(text: str, chunk_size: int, overlap: int) -> List[str]:
         chunk = text[start:end].strip()
         if chunk:
             chunks.append(chunk)
-        start = max(end - overlap, end)
         if end == len(text):
             break
+        start = end - overlap
     return chunks
 
 
@@ -103,14 +114,9 @@ def main() -> None:
     if not all_chunks:
         raise SystemExit("No chunks created. Check PDFs or OCR settings.")
 
-    texts = [c["text"] for c in all_chunks]
-    tokens = [tokenize(t) for t in texts]
-    with (INDEX_DIR / "bm25_tokens.json").open("w", encoding="utf-8") as f:
-        json.dump(tokens, f, ensure_ascii=False)
-
-    with (INDEX_DIR / "metadata.jsonl").open("w", encoding="utf-8") as f:
-        for c in all_chunks:
-            f.write(json.dumps(c, ensure_ascii=False) + "\n")
+    embedder = get_embedder()
+    vector_store = get_vector_store()
+    vector_store.save(all_chunks, embedder, show_progress_bar=True)
 
     print(f"Ingested {len(all_chunks)} chunks from {len(pdfs)} PDFs.")
 
